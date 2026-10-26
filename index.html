@@ -9,21 +9,21 @@
 :root{
   --bg:#f6f5f1; --surface:#ffffff; --surface-2:#f0eee8; --ink:#1d2129; --ink-2:#4b5260; --ink-3:#7a8190;
   --line:#dedad0; --grid:#ebe8e0; --accent:#1f5f8b; --accent-ink:#ffffff; --ref:#1d2129; --zero:#9a3412;
-  --p1:#b42318; --p2:#e2711d; --p3:#c99a06; --p4:#2a9d8f; --p5:#5b7db1;
+  --p1:#440154; --p2:#414487; --p3:#2A788E; --p4:#22A884; --p5:#7AD151;
   --shadow:0 1px 2px rgba(20,20,30,.05),0 4px 16px rgba(20,20,30,.04);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#14161b; --surface:#1c1f26; --surface-2:#242832; --ink:#eceef2; --ink-2:#b6bcc8; --ink-3:#8a91a0;
     --line:#2f343f; --grid:#262a33; --accent:#6cb2e4; --accent-ink:#0d1117; --ref:#eceef2; --zero:#f0a37a;
-    --p1:#ff6b5e; --p2:#ff9f4a; --p3:#f2c94c; --p4:#4fd1bf; --p5:#8fb0e8;
+    --p1:#FDE725; --p2:#7AD151; --p3:#22A884; --p4:#287D8E; --p5:#3B528B;
     --shadow:none;
   }
 }
 :root[data-theme="dark"]{
   --bg:#14161b; --surface:#1c1f26; --surface-2:#242832; --ink:#eceef2; --ink-2:#b6bcc8; --ink-3:#8a91a0;
   --line:#2f343f; --grid:#262a33; --accent:#6cb2e4; --accent-ink:#0d1117; --ref:#eceef2; --zero:#f0a37a;
-  --p1:#ff6b5e; --p2:#ff9f4a; --p3:#f2c94c; --p4:#4fd1bf; --p5:#8fb0e8;
+  --p1:#FDE725; --p2:#7AD151; --p3:#22A884; --p4:#287D8E; --p5:#3B528B;
   --shadow:none;
 }
 *{box-sizing:border-box}
@@ -317,10 +317,6 @@ if (typeof module !== 'undefined') module.exports = Stats;
     S.d = +$('delta').value; S.n = +$('n').value; S.alpha = +$('alpha').value; S.speed = +$('speed').value;
     // Welch power has no closed form, so it is simulated (only when settings are committed, not while dragging)
     if (withPower) S.power = Stats.welchPower(S.d, S.n, S.alpha);
-    const se = Math.sqrt(2 / S.n);
-    // fixed x-range so the dance is comparable across rows
-    S.xmin = Math.min(0, S.d) - 3.4 * se;
-    S.xmax = Math.max(0, S.d) + 3.4 * se;
     $('deltaOut').textContent = S.d.toFixed(2);
     $('nOut').textContent = S.n; $('nHint').textContent = S.n;
     $('speedOut').textContent = S.speed + '/s';
@@ -343,8 +339,20 @@ if (typeof module !== 'undefined') module.exports = Stats;
     return { id: results.length + 1, diff, lo: diff - crit * w.se, hi: diff + crit * w.se, t: w.t, df: w.df, p: w.p };
   }
 
+  // x-axis: starts wide enough for almost every CI, and widens (never shrinks) during a run
+  // so that every interval is always drawn in full
+  function resetAxis() {
+    const se = Math.sqrt(2 / S.n), pad = (2.2 + 1.25 * Stats.tCrit(S.alpha, 2 * S.n - 2)) * se;
+    S.xmin = Math.min(0, S.d) - pad;
+    S.xmax = Math.max(0, S.d) + pad;
+  }
+  function fitAxis(r) {
+    const head = 0.08 * (S.xmax - S.xmin);
+    if (r.lo < S.xmin) S.xmin = r.lo - head;
+    if (r.hi > S.xmax) S.xmax = r.hi + head;
+  }
   function add(k) {
-    for (let i = 0; i < k; i++) results.push(oneStudy());
+    for (let i = 0; i < k; i++) { const r = oneStudy(); results.push(r); fitAxis(r); }
     drawAll();
     const r = results[results.length - 1];
     $('live').textContent = k === 1 ? `Study ${r.id}: p ${r.p < .001 ? 'less than .001' : '= ' + fmtP(r.p)}` : `${results.length} studies run`;
@@ -416,12 +424,10 @@ if (typeof module !== 'undefined') module.exports = Stats;
       if ($('showCI').checked) {
         const a = Math.max(xl, x(r.lo)), b = Math.min(xr, x(r.hi));
         el('line', { x1: a, x2: b, y1: y, y2: y, stroke: col, 'stroke-width': 2.5, 'stroke-linecap': 'round' }, g);
-        if (x(r.lo) < xl) el('path', { d: `M${xl + 5},${y - 4} L${xl},${y} L${xl + 5},${y + 4}`, stroke: col, fill: 'none', 'stroke-width': 2 }, g);
-        if (x(r.hi) > xr) el('path', { d: `M${xr - 5},${y - 4} L${xr},${y} L${xr - 5},${y + 4}`, stroke: col, fill: 'none', 'stroke-width': 2 }, g);
       }
       const cx = Math.min(xr, Math.max(xl, x(r.diff)));
       el('circle', { cx, cy: y, r: 4.5, fill: sig ? col : css('--surface'), stroke: col, 'stroke-width': 2 }, g);
-      el('text', { x: W - 4, y: y + 4, 'text-anchor': 'end', 'font-size': narrow ? 12 : 13, 'font-weight': 700, fill: col }, g, fmtP(r.p));
+      el('text', { x: W - 4, y: y + 4, 'text-anchor': 'end', 'font-size': narrow ? 12 : 13, 'font-weight': 700, fill: css('--ink') }, g, fmtP(r.p));
     });
   }
 
@@ -490,12 +496,12 @@ if (typeof module !== 'undefined') module.exports = Stats;
     stop(); timer = setInterval(() => add(1), 1000 / S.speed);
     $('run').textContent = '❚❚ Pause'; $('run').setAttribute('aria-pressed', 'true');
   }
-  function fresh() { const wasRunning = !!timer; stop(); readSettings(true); results = []; drawAll(); if (wasRunning) start(); }
+  function fresh() { const wasRunning = !!timer; stop(); readSettings(true); resetAxis(); results = []; drawAll(); if (wasRunning) start(); }
 
   $('run').addEventListener('click', () => timer ? stop() : start());
   $('step').addEventListener('click', () => { stop(); add(1); });
   $('fast').addEventListener('click', () => add(100));
-  $('reset').addEventListener('click', () => { stop(); results = []; drawAll(); });
+  $('reset').addEventListener('click', () => { stop(); resetAxis(); results = []; drawAll(); });
   ['delta', 'n'].forEach(id => {
     $(id).addEventListener('input', () => { readSettings(); });
     $(id).addEventListener('change', fresh);
@@ -511,7 +517,7 @@ if (typeof module !== 'undefined') module.exports = Stats;
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(drawAll, 120); });
   if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawAll);
 
-  readSettings(true); drawLegend(); drawAll();
+  readSettings(true); resetAxis(); drawLegend(); drawAll();
 })();
 </script>
 </body>
