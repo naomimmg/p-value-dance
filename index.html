@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dance of the p-Values</title>
+<meta name="description" content="An interactive simulation showing how much p-values vary when the exact same study is replicated: the dance of the p-values.">
+<style>
+:root{
+  --bg:#f6f5f1; --surface:#ffffff; --surface-2:#f0eee8; --ink:#1d2129; --ink-2:#4b5260; --ink-3:#7a8190;
+  --line:#dedad0; --grid:#ebe8e0; --accent:#1f5f8b; --accent-ink:#ffffff; --ref:#1d2129; --zero:#9a3412;
+  --p1:#b42318; --p2:#e2711d; --p3:#c99a06; --p4:#2a9d8f; --p5:#5b7db1;
+  --shadow:0 1px 2px rgba(20,20,30,.05),0 4px 16px rgba(20,20,30,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161b; --surface:#1c1f26; --surface-2:#242832; --ink:#eceef2; --ink-2:#b6bcc8; --ink-3:#8a91a0;
+    --line:#2f343f; --grid:#262a33; --accent:#6cb2e4; --accent-ink:#0d1117; --ref:#eceef2; --zero:#f0a37a;
+    --p1:#ff6b5e; --p2:#ff9f4a; --p3:#f2c94c; --p4:#4fd1bf; --p5:#8fb0e8;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161b; --surface:#1c1f26; --surface-2:#242832; --ink:#eceef2; --ink-2:#b6bcc8; --ink-3:#8a91a0;
+  --line:#2f343f; --grid:#262a33; --accent:#6cb2e4; --accent-ink:#0d1117; --ref:#eceef2; --zero:#f0a37a;
+  --p1:#ff6b5e; --p2:#ff9f4a; --p3:#f2c94c; --p4:#4fd1bf; --p5:#8fb0e8;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 56px}
+header h1{font-size:clamp(1.7rem,4vw,2.5rem);line-height:1.15;margin:0 0 .35rem;letter-spacing:-.01em}
+header h1 em{font-style:italic;font-family:Georgia,"Times New Roman",serif;font-weight:600}
+.lede{font-size:1.08rem;color:var(--ink-2);max-width:62ch;margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.setup{margin-top:20px;padding:16px 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 22px;align-items:end}
+.ctl label{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+.ctl label output{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:700}
+.ctl .hint{font-size:.76rem;color:var(--ink-3);margin-top:4px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:0}
+select{width:100%;font:inherit;font-size:.95rem;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink)}
+.buttons{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:14px}
+button{font:inherit;font-size:.93rem;font-weight:600;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:8px 14px;cursor:pointer;min-height:40px}
+button:hover{border-color:var(--ink-3)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);min-width:104px}
+.check{display:flex;align-items:center;gap:6px;font-size:.9rem;color:var(--ink-2);margin-left:auto;cursor:pointer}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.note{font-size:.8rem;color:var(--ink-3)}
+.main{margin-top:18px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:18px;align-items:start}
+.panel{padding:16px 18px}
+.panel h2{font-size:1.02rem;margin:0 0 2px}
+.panel .sub{font-size:.84rem;color:var(--ink-3);margin:0 0 10px}
+#dance{width:100%;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--ink-2);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:11px;height:11px;border-radius:50%;display:inline-block}
+.sw.hollow{background:transparent!important;border:2px solid var(--ink-3)}
+.side{display:grid;gap:18px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--surface-2);border-radius:10px;padding:10px 12px}
+.tile .k{font-size:.76rem;color:var(--ink-3);font-weight:600;line-height:1.3}
+.tile .v{font-size:1.45rem;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;line-height:1.2}
+.tile .v small{display:inline-block;font-size:.8rem;font-weight:600;color:var(--ink-3)}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+.chart{width:100%;display:block}
+.learn{margin-top:22px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.learn h2{font-size:1.15rem;margin:0 0 8px}
+.learn p,.learn li{color:var(--ink-2);font-size:.97rem}
+.learn p{margin:.4rem 0}
+.tries{display:grid;gap:10px;margin-top:8px}
+.try{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;background:var(--surface-2);border-radius:10px;padding:10px 12px}
+.try b{font-size:.95rem}
+.try span{grid-column:1;font-size:.86rem;color:var(--ink-2)}
+.try button{grid-row:1/3;grid-column:2;min-height:36px;padding:6px 12px;font-size:.85rem}
+ol.q{padding-left:1.2rem;margin:.4rem 0}
+ol.q li{margin:.35rem 0}
+footer{margin-top:26px;font-size:.82rem;color:var(--ink-3)}
+footer p{margin:.3rem 0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:900px){
+  .main{grid-template-columns:1fr}
+  .setup{grid-template-columns:1fr 1fr}
+  .learn{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .setup{grid-template-columns:1fr}
+  .check{margin-left:0}
+  .wrap{padding-top:20px}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>The dance of the <em>p</em>-values</h1>
+    <p class="lede">Run the exact same study again and again: same populations, same sample size, same test. Only the random sample changes. Watch how much <i>p</i> jumps around from one replication to the next.</p>
+  </header>
+
+  <section class="card setup" aria-label="Simulation settings">
+    <div class="ctl">
+      <label for="delta"><span>True effect size (Cohen's <i>d</i>)</span> <output id="deltaOut">0.50</output></label>
+      <input id="delta" type="range" min="0" max="1.5" step="0.05" value="0.5">
+      <div class="hint">Population mean difference, in SD units</div>
+    </div>
+    <div class="ctl">
+      <label for="n">Sample size per group <output id="nOut">32</output></label>
+      <input id="n" type="range" min="5" max="200" step="1" value="32">
+      <div class="hint">Two independent groups of <span id="nHint">32</span></div>
+    </div>
+    <div class="ctl">
+      <label for="alpha">Significance level (α)</label>
+      <select id="alpha">
+        <option value="0.10">α = .10</option>
+        <option value="0.05" selected>α = .05</option>
+        <option value="0.01">α = .01</option>
+      </select>
+      <div class="hint">CIs shown at the matching <span id="ciHint">95</span>% level</div>
+    </div>
+    <div class="ctl">
+      <label for="speed">Speed <output id="speedOut">3/s</output></label>
+      <input id="speed" type="range" min="1" max="20" step="1" value="3">
+      <div class="hint">Replications per second</div>
+    </div>
+    <div class="buttons">
+      <button id="run" class="primary" type="button">▶ Run</button>
+      <button id="step" type="button">+1 study</button>
+      <button id="fast" type="button">+100 studies</button>
+      <button id="reset" type="button">Reset</button>
+      <label class="check"><input id="showCI" type="checkbox" checked> Show confidence intervals</label>
+      <span class="note" style="flex-basis:100%">Changing a setting clears the results and starts a fresh set of replications.</span>
+    </div>
+  </section>
+
+  <section class="main">
+    <div class="card panel">
+      <h2>Each row is one replication</h2>
+      <p class="sub">Newest study at the top. The dot is that study's observed mean difference; the bar is its <span id="ciLabel">95</span>% confidence interval; the number on the right is its <i>p</i>-value.</p>
+      <svg id="dance" role="img" aria-label="Rows of confidence intervals and p-values from repeated simulated studies"></svg>
+      <div class="legend" id="legend"></div>
+      <p class="sr" id="live" aria-live="polite"></p>
+    </div>
+
+    <div class="side">
+      <div class="card panel">
+        <h2>Running tally</h2>
+        <p class="sub" id="tallySub">Welch's <i>t</i>-test, two-sided</p>
+        <div class="tiles">
+          <div class="tile"><div class="k">Studies run</div><div class="v" id="tN">0</div></div>
+          <div class="tile"><div class="k">Significant (<i>p</i> &lt; <span class="aTxt">.05</span>)</div><div class="v" id="tSig">–</div></div>
+          <div class="tile"><div class="k" id="tPowK">Expected % significant (power)</div><div class="v" id="tPow">–</div></div>
+          <div class="tile"><div class="k">Smallest to largest <i>p</i> so far</div><div class="v" id="tRange" style="font-size:1.1rem">–</div></div>
+        </div>
+      </div>
+
+      <div class="card panel">
+        <h2>Where did the <i>p</i>-values land?</h2>
+        <p class="sub">Share of all studies so far in each <i>p</i> range</p>
+        <svg id="cats" class="chart" role="img" aria-label="Bar chart of the share of p-values in each range"></svg>
+      </div>
+
+      <div class="card panel">
+        <h2>Distribution of every <i>p</i>-value</h2>
+        <p class="sub">20 bins from 0 to 1.</p>
+        <svg id="hist" class="chart" role="img" aria-label="Histogram of all p-values from 0 to 1"></svg>
+      </div>
+    </div>
+  </section>
+  <footer>
+    <p>Each study draws two independent samples of size <i>n</i> from normal populations with SD = 1 whose means differ by <i>d</i>, then runs a two-sided Welch's <i>t</i>-test (which does not assume equal variances). Everything runs in your browser, so results differ every time.</p>
+    <p>The idea and the name come from Geoff Cumming. See Cumming, G., &amp; Calin-Jageman, R. (2024). <i>Introduction to the new statistics: Estimation, open science, and beyond</i> (2nd ed.). Routledge.</p>
+  </footer>
+</div>
+
+<script>
+// ---------- statistics helpers (no libraries) ----------
+const Stats = (() => {
+  // Lanczos log-gamma
+  const LG = [676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059,
+    12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  function lgamma(x) {
+    if (x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lgamma(1 - x);
+    x -= 1;
+    let a = 0.99999999999980993;
+    const t = x + 7.5;
+    for (let i = 0; i < 8; i++) a += LG[i] / (x + i + 1);
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+  // continued fraction for the regularized incomplete beta (Numerical Recipes)
+  function betacf(a, b, x) {
+    const MAXIT = 300, EPS = 3e-14, FPMIN = 1e-300;
+    let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1 / d; let h = d;
+    for (let m = 1; m <= MAXIT; m++) {
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; const del = d * c; h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  // two-sided p-value for a t statistic
+  function tTwoSidedP(t, df) { return ibeta(df / (df + t * t), df / 2, 0.5); }
+  // critical t such that two-sided p = alpha
+  function tCrit(alpha, df) {
+    let lo = 0, hi = 1000;
+    for (let i = 0; i < 64; i++) { const mid = (lo + hi) / 2; if (tTwoSidedP(mid, df) > alpha) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+  // standard normal CDF (via complementary error function, ~1e-7 accuracy)
+  function pnorm(z) {
+    const t = 1 / (1 + 0.5 * Math.abs(z) / Math.SQRT2);
+    const y = t * Math.exp(-z * z / 2 - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 +
+      t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    // y = erfc(|z|/sqrt2)
+    return z >= 0 ? 1 - y / 2 : y / 2;
+  }
+  // power of the two-sided, two-sample t-test (equal n, sd = 1): integrate over the chi-square
+  function power(delta, n, alpha) {
+    const df = 2 * n - 2, lambda = delta * Math.sqrt(n / 2), c = tCrit(alpha, df);
+    const k = df / 2, lnorm = -k * Math.log(2) - lgamma(k);
+    const lo = Math.max(1e-9, df - 12 * Math.sqrt(2 * df)), hi = df + 14 * Math.sqrt(2 * df) + 20;
+    const N = 2000, h = (hi - lo) / N;
+    let s = 0;
+    for (let i = 0; i <= N; i++) {
+      const u = lo + i * h;
+      const f = Math.exp(lnorm + (k - 1) * Math.log(u) - u / 2);
+      const q = c * Math.sqrt(u / df);
+      const g = f * (pnorm(-q + lambda) + pnorm(-q - lambda));
+      s += g * (i === 0 || i === N ? 1 : i % 2 ? 4 : 2);
+    }
+    return Math.min(1, s * h / 3);
+  }
+  // standard normal random numbers (Box-Muller, cached pair)
+  let spare = null;
+  function rnorm() {
+    if (spare !== null) { const s = spare; spare = null; return s; }
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    v = Math.random();
+    const r = Math.sqrt(-2 * Math.log(u)), th = 2 * Math.PI * v;
+    spare = r * Math.sin(th);
+    return r * Math.cos(th);
+  }
+  // Welch's t-test for two samples summarised by means and variances
+  function welch(m1, v1, n1, m2, v2, n2) {
+    const a = v1 / n1, b = v2 / n2, se = Math.sqrt(a + b);
+    const df = (a + b) * (a + b) / (a * a / (n1 - 1) + b * b / (n2 - 1));
+    const t = (m2 - m1) / se;
+    return { t, df, se, p: tTwoSidedP(Math.abs(t), df) };
+  }
+  // seeded PRNG + normal generator, so the power estimate is stable for given settings
+  function seededNormal(seed) {
+    let s = seed >>> 0, spare = null;
+    const u = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    return () => {
+      if (spare !== null) { const z = spare; spare = null; return z; }
+      let a = 0; while (a === 0) a = u();
+      const r = Math.sqrt(-2 * Math.log(a)), th = 2 * Math.PI * u();
+      spare = r * Math.sin(th); return r * Math.cos(th);
+    };
+  }
+  // power of the two-sided Welch test (equal n, both SDs = 1), estimated by simulation:
+  // there is no exact closed form because each study's df depends on its own variances
+  function welchPower(delta, n, alpha, reps = 20000) {
+    const z = seededNormal(20261026 + n * 7919 + Math.round(delta * 1000) * 104729 + Math.round(alpha * 1000));
+    let hits = 0;
+    for (let r = 0; r < reps; r++) {
+      let s1 = 0, q1 = 0, s2 = 0, q2 = 0;
+      for (let i = 0; i < n; i++) { const x = z(); s1 += x; q1 += x * x; }
+      for (let i = 0; i < n; i++) { const y = z() + delta; s2 += y; q2 += y * y; }
+      const m1 = s1 / n, m2 = s2 / n;
+      const w = welch(m1, (q1 - n * m1 * m1) / (n - 1), n, m2, (q2 - n * m2 * m2) / (n - 1), n);
+      if (w.p < alpha) hits++;
+    }
+    return hits / reps;
+  }
+  return { lgamma, ibeta, tTwoSidedP, tCrit, pnorm, power, rnorm, welch, welchPower };
+})();
+if (typeof module !== 'undefined') module.exports = Stats;
+
+</script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  const BINS = [
+    { max: .001, label: '< .001', color: '--p1' },
+    { max: .01,  label: '.001–.01', color: '--p2' },
+    { max: .05,  label: '.01–.05', color: '--p3' },
+    { max: .10,  label: '.05–.10', color: '--p4' },
+    { max: Infinity, label: '> .10', color: '--p5' },
+  ];
+  const binOf = p => BINS.findIndex(b => p < b.max);
+  const fmtP = p => p < .001 ? '< .001' : p.toFixed(3).replace(/^0/, '');
+  const fmtA = a => String(a).replace(/^0/, '');
+
+  let S = {}, results = [], timer = null;
+
+  function readSettings(withPower) {
+    S.d = +$('delta').value; S.n = +$('n').value; S.alpha = +$('alpha').value; S.speed = +$('speed').value;
+    // Welch power has no closed form, so it is simulated (only when settings are committed, not while dragging)
+    if (withPower) S.power = Stats.welchPower(S.d, S.n, S.alpha);
+    const se = Math.sqrt(2 / S.n);
+    // fixed x-range so the dance is comparable across rows
+    S.xmin = Math.min(0, S.d) - 3.4 * se;
+    S.xmax = Math.max(0, S.d) + 3.4 * se;
+    $('deltaOut').textContent = S.d.toFixed(2);
+    $('nOut').textContent = S.n; $('nHint').textContent = S.n;
+    $('speedOut').textContent = S.speed + '/s';
+    const ci = Math.round((1 - S.alpha) * 100);
+    $('ciHint').textContent = ci; $('ciLabel').textContent = ci;
+    document.querySelectorAll('.aTxt').forEach(e => e.textContent = fmtA(S.alpha));
+    $('tPowK').innerHTML = S.d === 0 ? 'Expected % significant (false positives)' : 'Expected % significant (power)';
+  }
+
+  function oneStudy() {
+    const n = S.n;
+    let s1 = 0, s2 = 0, q1 = 0, q2 = 0;
+    for (let i = 0; i < n; i++) { const x = Stats.rnorm(); s1 += x; q1 += x * x; }
+    for (let i = 0; i < n; i++) { const y = Stats.rnorm() + S.d; s2 += y; q2 += y * y; }
+    const m1 = s1 / n, m2 = s2 / n;
+    const v1 = (q1 - n * m1 * m1) / (n - 1), v2 = (q2 - n * m2 * m2) / (n - 1);
+    // Welch's t-test: each study has its own Welch–Satterthwaite df, so its CI uses its own critical t
+    const w = Stats.welch(m1, v1, n, m2, v2, n);
+    const diff = m2 - m1, crit = Stats.tCrit(S.alpha, w.df);
+    return { id: results.length + 1, diff, lo: diff - crit * w.se, hi: diff + crit * w.se, t: w.t, df: w.df, p: w.p };
+  }
+
+  function add(k) {
+    for (let i = 0; i < k; i++) results.push(oneStudy());
+    drawAll();
+    const r = results[results.length - 1];
+    $('live').textContent = k === 1 ? `Study ${r.id}: p ${r.p < .001 ? 'less than .001' : '= ' + fmtP(r.p)}` : `${results.length} studies run`;
+  }
+
+  // ---------- drawing ----------
+  function el(tag, attrs, parent, text) {
+    const e = document.createElementNS(svgNS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+
+  function niceTicks(a, b, target) {
+    const span = b - a, raw = span / target, pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * pow).find(s => span / s <= target) || pow * 10;
+    const out = []; for (let v = Math.ceil(a / step) * step; v <= b + 1e-9; v += step) out.push(+v.toFixed(10));
+    return out;
+  }
+
+  function drawDance() {
+    const svg = $('dance'); clear(svg);
+    const W = svg.clientWidth || 600;
+    const narrow = W < 460;
+    const ROWS = narrow ? 22 : 28, rowH = narrow ? 17 : 18;
+    const left = narrow ? 34 : 44, right = narrow ? 62 : 78, top = 30, bottom = 36;
+    const H = top + ROWS * rowH + bottom;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('height', H);
+    const x = v => left + (v - S.xmin) / (S.xmax - S.xmin) * (W - left - right);
+    const ink3 = css('--ink-3'), grid = css('--grid'), ink2 = css('--ink-2');
+
+    // grid + axis
+    for (const v of niceTicks(S.xmin, S.xmax, narrow ? 5 : 8)) {
+      el('line', { x1: x(v), x2: x(v), y1: top - 4, y2: top + ROWS * rowH, stroke: grid }, svg);
+      el('text', { x: x(v), y: top + ROWS * rowH + 16, 'text-anchor': 'middle', 'font-size': 11, fill: ink3 }, svg, +v.toFixed(2));
+    }
+    el('text', { x: left + (W - left - right) / 2, y: H - 4, 'text-anchor': 'middle', 'font-size': 12, fill: ink2 }, svg, 'Observed mean difference (Group 2 − Group 1)');
+    // reference lines
+    el('line', { x1: x(0), x2: x(0), y1: top - 6, y2: top + ROWS * rowH, stroke: css('--zero'), 'stroke-width': 1.5 }, svg);
+    if (S.d !== 0) {
+      el('line', { x1: x(S.d), x2: x(S.d), y1: top - 6, y2: top + ROWS * rowH, stroke: css('--ref'), 'stroke-width': 1.5, 'stroke-dasharray': '5 4' }, svg);
+    }
+    const lblY = top - 12;
+    if (S.d === 0) {
+      el('text', { x: x(0), y: lblY, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, fill: css('--zero') }, svg, 'true effect = 0');
+    } else {
+      const close = Math.abs(x(S.d) - x(0)) < 70;
+      el('text', { x: x(0) + (close ? -4 : 0), y: lblY, 'text-anchor': close ? 'end' : 'middle', 'font-size': 11, 'font-weight': 600, fill: css('--zero') }, svg, 'zero');
+      el('text', { x: x(S.d) + (close ? 4 : 0), y: lblY, 'text-anchor': close ? 'start' : 'middle', 'font-size': 11, 'font-weight': 600, fill: css('--ref') }, svg, `true d = ${S.d.toFixed(2)}`);
+    }
+    el('text', { x: W - 4, y: lblY, 'text-anchor': 'end', 'font-size': 11, 'font-weight': 700, fill: ink2 }, svg, 'p');
+    el('text', { x: 4, y: lblY, 'font-size': 11, 'font-weight': 700, fill: ink2 }, svg, 'Study');
+
+    if (!results.length) {
+      el('text', { x: W / 2, y: top + 5 * rowH, 'text-anchor': 'middle', 'font-size': 14, fill: ink3 }, svg, 'Press ▶ Run or +1 study to begin');
+      return;
+    }
+    const shown = results.slice(-ROWS).reverse();
+    const xl = x(S.xmin), xr = x(S.xmax);
+    shown.forEach((r, i) => {
+      const y = top + i * rowH + rowH / 2;
+      const col = css(BINS[binOf(r.p)].color);
+      const sig = r.p < S.alpha;
+      const g = el('g', { opacity: i === 0 ? 1 : Math.max(0.55, 1 - i * 0.017) }, svg);
+      if (i === 0) el('rect', { x: 0, y: y - rowH / 2, width: W, height: rowH, fill: css('--surface-2'), rx: 4 }, g);
+      el('text', { x: 4, y: y + 4, 'font-size': 11, fill: ink3 }, g, '#' + r.id);
+      if ($('showCI').checked) {
+        const a = Math.max(xl, x(r.lo)), b = Math.min(xr, x(r.hi));
+        el('line', { x1: a, x2: b, y1: y, y2: y, stroke: col, 'stroke-width': 2.5, 'stroke-linecap': 'round' }, g);
+        if (x(r.lo) < xl) el('path', { d: `M${xl + 5},${y - 4} L${xl},${y} L${xl + 5},${y + 4}`, stroke: col, fill: 'none', 'stroke-width': 2 }, g);
+        if (x(r.hi) > xr) el('path', { d: `M${xr - 5},${y - 4} L${xr},${y} L${xr - 5},${y + 4}`, stroke: col, fill: 'none', 'stroke-width': 2 }, g);
+      }
+      const cx = Math.min(xr, Math.max(xl, x(r.diff)));
+      el('circle', { cx, cy: y, r: 4.5, fill: sig ? col : css('--surface'), stroke: col, 'stroke-width': 2 }, g);
+      el('text', { x: W - 4, y: y + 4, 'text-anchor': 'end', 'font-size': narrow ? 12 : 13, 'font-weight': 700, fill: col }, g, fmtP(r.p));
+    });
+  }
+
+  function drawTiles() {
+    const N = results.length;
+    $('tN').textContent = N.toLocaleString();
+    $('tPow').innerHTML = (S.power * 100).toFixed(S.power > .995 && S.power < 1 ? 1 : 0) + '%';
+    if (!N) { $('tSig').textContent = '–'; $('tRange').textContent = '–'; return; }
+    const k = results.filter(r => r.p < S.alpha).length;
+    $('tSig').innerHTML = `${(k / N * 100).toFixed(0)}% <small>(${k} of ${N})</small>`;
+    let mn = 1, mx = 0; for (const r of results) { if (r.p < mn) mn = r.p; if (r.p > mx) mx = r.p; }
+    $('tRange').textContent = N < 2 ? fmtP(mn) : `${fmtP(mn)} to ${fmtP(mx)}`;
+  }
+
+  function drawCats() {
+    const svg = $('cats'); clear(svg);
+    const W = svg.clientWidth || 320, rowH = 30, labW = 66, numW = 46, H = BINS.length * rowH + 4;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('height', H);
+    const N = results.length, counts = BINS.map(() => 0);
+    results.forEach(r => counts[binOf(r.p)]++);
+    const maxShare = Math.max(0.0001, ...counts.map(c => N ? c / N : 0));
+    const scaleMax = Math.max(maxShare, 0.25);
+    BINS.forEach((b, i) => {
+      const y = i * rowH + 4, share = N ? counts[i] / N : 0, col = css(b.color);
+      el('text', { x: labW - 8, y: y + rowH / 2 + 1, 'text-anchor': 'end', 'font-size': 12, fill: css('--ink-2') }, svg, b.label);
+      el('rect', { x: labW, y: y + 5, width: W - labW - numW, height: rowH - 12, fill: css('--surface-2'), rx: 4 }, svg);
+      el('rect', { x: labW, y: y + 5, width: Math.max(0, (W - labW - numW) * share / scaleMax), height: rowH - 12, fill: col, rx: 4 }, svg);
+      el('text', { x: W - 2, y: y + rowH / 2 + 1, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 700, fill: css('--ink') }, svg, N ? Math.round(share * 100) + '%' : '–');
+    });
+  }
+
+  function drawHist() {
+    const svg = $('hist'); clear(svg);
+    const W = svg.clientWidth || 320, H = 170, l = 46, r = 8, t = 10, b = 32;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('height', H);
+    const NB = 20, counts = new Array(NB).fill(0);
+    results.forEach(rr => counts[Math.min(NB - 1, Math.floor(rr.p * NB))]++);
+    const ymax = Math.max(1, ...counts) * 1.08;
+    const x = v => l + v * (W - l - r), y = v => t + (1 - v / ymax) * (H - t - b);
+    for (const v of niceTicks(0, ymax, 3)) {
+      el('line', { x1: l, x2: W - r, y1: y(v), y2: y(v), stroke: css('--grid') }, svg);
+      el('text', { x: l - 5, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 10, fill: css('--ink-3') }, svg, v);
+    }
+    counts.forEach((c, i) => {
+      const p0 = i / NB, col = css(BINS[binOf(p0 + 1e-9)].color);
+      el('rect', { x: x(p0) + 0.75, y: y(c), width: Math.max(0, x(1 / NB) - l - 1.5), height: y(0) - y(c), fill: col, rx: 1.5 }, svg);
+    });
+    const yMid = t + (H - t - b) / 2;
+    el('text', { x: 11, y: yMid, transform: `rotate(-90 11 ${yMid})`, 'text-anchor': 'middle', 'font-size': 11, fill: css('--ink-2') }, svg, 'Number of studies');
+    el('line', { x1: x(S.alpha), x2: x(S.alpha), y1: t, y2: y(0), stroke: css('--zero'), 'stroke-width': 1.5 }, svg);
+    el('text', { x: x(S.alpha) + 4, y: t + 10, 'font-size': 11, 'font-weight': 600, fill: css('--zero') }, svg, 'α = ' + fmtA(S.alpha));
+    [0, .25, .5, .75, 1].forEach(v => el('text', { x: x(v), y: H - 16, 'text-anchor': 'middle', 'font-size': 11, fill: css('--ink-3') }, svg, v === 0 || v === 1 ? v : fmtA(v)));
+    el('text', { x: l + (W - l - r) / 2, y: H - 2, 'text-anchor': 'middle', 'font-size': 11, fill: css('--ink-2') }, svg, 'p-value');
+  }
+
+  function drawLegend() {
+    $('legend').innerHTML = BINS.map(b => `<span><i class="sw" style="background:var(${b.color})"></i>p ${b.label}</span>`).join('') +
+      `<span><i class="sw" style="background:var(--ink-3)"></i>filled = significant</span><span><i class="sw hollow"></i>hollow = not significant</span>`;
+  }
+
+  function drawAll() { drawDance(); drawTiles(); drawCats(); drawHist(); }
+
+  // ---------- controls ----------
+  function stop() { clearInterval(timer); timer = null; $('run').textContent = '▶ Run'; $('run').setAttribute('aria-pressed', 'false'); }
+  function start() {
+    stop(); timer = setInterval(() => add(1), 1000 / S.speed);
+    $('run').textContent = '❚❚ Pause'; $('run').setAttribute('aria-pressed', 'true');
+  }
+  function fresh() { const wasRunning = !!timer; stop(); readSettings(true); results = []; drawAll(); if (wasRunning) start(); }
+
+  $('run').addEventListener('click', () => timer ? stop() : start());
+  $('step').addEventListener('click', () => { stop(); add(1); });
+  $('fast').addEventListener('click', () => add(100));
+  $('reset').addEventListener('click', () => { stop(); results = []; drawAll(); });
+  ['delta', 'n'].forEach(id => {
+    $(id).addEventListener('input', () => { readSettings(); });
+    $(id).addEventListener('change', fresh);
+  });
+  $('alpha').addEventListener('change', fresh);
+  $('speed').addEventListener('input', () => { readSettings(); if (timer) start(); });
+  $('showCI').addEventListener('change', drawDance);
+  document.querySelectorAll('.try button').forEach(b => b.addEventListener('click', () => {
+    $('delta').value = b.dataset.d; $('n').value = b.dataset.n;
+    fresh(); add(100);
+    document.querySelector('.main').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(drawAll, 120); });
+  if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawAll);
+
+  readSettings(true); drawLegend(); drawAll();
+})();
+</script>
+</body>
+</html>
